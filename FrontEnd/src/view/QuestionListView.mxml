@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<j:View xmlns:fx="http://ns.adobe.com/mxml/2009"
+        xmlns:js="library://ns.apache.org/royale/basic"
+        xmlns:j="library://ns.apache.org/royale/jewel"
+        xmlns:ns1="view.*"
+        width="100%"
+        height="100%"
+        initComplete="init()">
+
+    <j:beads>
+        <js:ContainerDataBinding/>
+        <js:ApplicationParametersCaseInsensitive localId="parameters"/>
+        <js:Paddings padding="20"/>
+    </j:beads>
+
+    <fx:Script>
+        <![CDATA[
+            import org.apache.royale.mdl.materialIcons.MaterialIconType;
+            import org.apache.royale.collections.ArrayList;
+            import org.apache.royale.jewel.Alert;
+            import org.apache.royale.core.StyledUIBase;
+            import org.apache.royale.utils.Timer;
+            import helpers.ServiceFactory;
+            import helpers.ServiceCompleteEvent;
+            import helpers.ServiceIOErrorEvent;
+            import view.QuestionView;
+
+            private static const LIST_LIMIT:int = 10;
+
+            private static var lastLimit:int = 0;
+
+            //we use a timer while typing to avoid unnecessary communication overhead
+            private var timerSearch:Timer = new Timer(1000);
+
+            private function init():void
+            {
+                var filter:String = parameters.getValue("filter");
+                if (filter == null)
+                    list.setFocus();
+                else if (filter == "")
+                    txtSearch.setFocus();
+                else
+                    txtSearch.text = filter;
+
+                getNextQuestions();
+                timerSearch.addEventListener(Timer.TIMER, onTimerSearch);
+
+                var id:String = parameters.getValue("id");
+                if (id != null)
+                    openDetail(int(id));
+            }
+
+            private function startSearch():void
+            {
+                lastLimit = 0;
+                timerSearch.stop();
+                timerSearch.start();
+            }
+
+            private function onTimerSearch(event:Event):void
+            {
+                getNextQuestions();
+                timerSearch.stop();
+            }
+
+            private function faultCallback(event:ServiceIOErrorEvent):void
+            {
+                Alert.show("Service call error: " + event.message);
+            }
+
+            private function getNextQuestions():void
+            {
+                var url:String = "questions?limit=" + LIST_LIMIT + "&offset=" + lastLimit;
+                if (txtSearch.text.trim().length > 0)
+                    url += "&filter=" + txtSearch.text.trim();
+
+                var service:ServiceFactory = new ServiceFactory();
+                service.addEventListener(ServiceFactory.COMPLETE, getQuestionsCallback);
+                service.addEventListener(ServiceFactory.IOERROR, faultCallback);
+                service.get(url);
+            }
+
+            private function getQuestionsCallback(event:ServiceCompleteEvent):void
+            {
+                if (lastLimit > 0 && event.data.length == 0)
+                    Alert.show("There is no more data!");
+                else
+                    list.dataProvider = new ArrayList(event.data);
+
+                lastLimit += LIST_LIMIT;
+            }
+
+            private function sendShareScreen(email:String):void
+            {
+                var url:String = "share?destination_email=" + email + "&content_url=" + window.location.href;
+
+                var service:ServiceFactory = new ServiceFactory();
+                service.addEventListener(ServiceFactory.COMPLETE, sendShareScreenCallback);
+                service.addEventListener(ServiceFactory.IOERROR, faultCallback);
+                service.post(url);
+            }
+
+            private function sendShareScreenCallback(event:ServiceCompleteEvent):void
+            {
+                if (event.data)
+                    Alert.show("E-Mail sent.");
+                else
+                    Alert.show("Error when trying to send email (check sending settings)!");
+            }
+
+            private function openDetail(id:int):void
+            {
+                var questionView:QuestionView = new QuestionView();
+                questionView.idQuestion = id;
+                questionView.questionListView = this;
+                this.parent.addElement(questionView);
+
+                this.parent.removeElement(this);
+            }
+        ]]>
+    </fx:Script>
+    
+    <j:VGroup gap="5"
+              width="100%"
+              height="100%">
+        <j:beads>
+            <js:Paddings padding="10"/>
+        </j:beads>
+        <j:IconTextInput localId="txtSearch"
+                         rightPosition="true"
+                         width="100%"
+                         height="40"
+                         change="startSearch()">
+            <j:beads>
+                <j:TextPrompt prompt="Search ..."/>
+            </j:beads>
+            <j:icon>
+                <js:MaterialIcon text="{MaterialIconType.SEARCH}"/>
+            </j:icon>
+        </j:IconTextInput>
+        <j:List localId="list"
+                labelField="description"
+                width="100%"
+                height="100%"
+                change="openDetail(event.currentTarget.selectedItem.id)">
+            <j:beads>
+                <j:ListPresentationModel rowHeight="30"/>
+            </j:beads>
+        </j:List>
+        <j:HGroup gap="5"
+                  width="100%">
+            <j:Button text="Next {LIST_LIMIT} records"
+                      emphasis="{StyledUIBase.PRIMARY}"
+                      width="100%"
+                      click="getNextQuestions()"/>
+            <j:Button text="Share Screen"
+                      emphasis="{StyledUIBase.PRIMARY}"
+                      width="100%"
+                      click="popupEMailInput.open = true"/>
+        </j:HGroup>
+    </j:VGroup>
+
+    <j:PopUp localId="popupEMailInput">
+        <ns1:EMailInputView submit="sendShareScreen(event.currentTarget.email); popupEMailInput.open = false;"
+                            width="500"/>
+    </j:PopUp>
+</j:View>

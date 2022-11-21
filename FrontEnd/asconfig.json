@@ -1,0 +1,14 @@
+{
+    "compilerOptions": {
+        "source-map": true,
+        "targets": [
+            "JSRoyale"
+        ],
+        "html-template": "src/resources/index-template.html",
+        "theme": "${royalelib}/themes/Jewel-Light-NoFlat-Primary-Blue-Theme/src/main/resources/defaults.css"
+    },
+    "files": [
+        "src/App.mxml"
+    ],
+    "additionalOptions": "-remove-circulars -js-output-optimization=skipAsCoercions -js-dynamic-access-unknown-members=true"
+}

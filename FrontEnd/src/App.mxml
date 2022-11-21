@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<js:Application xmlns:fx="http://ns.adobe.com/mxml/2009"
+                xmlns:js="library://ns.apache.org/royale/express"
+                xmlns:view="view.*"
+                initialize="init()">
+
+    <fx:Script>
+        <![CDATA[
+            import helpers.ServiceFactory;
+            import helpers.ServiceCompleteEvent;
+            import helpers.ServiceIOErrorEvent;
+            import org.apache.royale.jewel.Alert;
+            import org.apache.royale.utils.Timer;
+
+            //we use a timer to control connectivity
+            private var timerConnectivity:Timer = new Timer(20000);
+
+            private function init():void
+            {
+                timerConnectivity.addEventListener(Timer.TIMER, onTimerConnectivity);
+                checkHealth();
+            }
+
+            private function onTimerConnectivity(event:Event):void
+            {
+                checkHealth();
+            }
+
+            private function checkHealth():void
+            {
+                var service:ServiceFactory = new ServiceFactory();
+                service.addEventListener(ServiceFactory.COMPLETE, checkHealthCallback);
+                service.addEventListener(ServiceFactory.IOERROR, checkHealthFaultCallback);
+                service.get("health");
+            }
+
+            private function checkHealthCallback(event:ServiceCompleteEvent):void
+            {
+                document.getElementById("loading").style.display = "none";
+                questionList.visible = true;
+
+                timerConnectivity.start();
+            }
+
+            private function checkHealthFaultCallback(event:ServiceIOErrorEvent):void
+            {
+                document.getElementById("loading").style.display = "flex";
+                questionList.visible = false;
+
+                if (!timerConnectivity.running)
+                {
+                    var alert:Alert = Alert.show("Service NOT available. Press OK to retry.");
+                    alert.addEventListener(CloseEvent.CLOSE, function():void { checkHealth() });
+                }
+            }
+        ]]>
+    </fx:Script>
+	<js:initialView>
+        <view:QuestionListView localId="questionList"
+                               visible="false"/>
+	</js:initialView>
+</js:Application>

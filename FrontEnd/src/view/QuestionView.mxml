@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<j:View xmlns:fx="http://ns.adobe.com/mxml/2009"
+        xmlns:html="library://ns.apache.org/royale/html"
+        xmlns:js="library://ns.apache.org/royale/basic"
+        xmlns:j="library://ns.apache.org/royale/jewel"
+        xmlns:ns1="view.*"
+        width="100%"
+        height="100%"
+        initComplete="init()">
+
+    <j:beads>
+        <js:ContainerDataBinding/>
+        <js:Paddings padding="20"/>
+    </j:beads>
+
+    <fx:Script>
+        <![CDATA[
+            import helpers.ServiceFactory;
+            import helpers.ServiceIOErrorEvent;
+            import org.apache.royale.jewel.Alert;
+            import helpers.ServiceCompleteEvent;
+            import org.apache.royale.core.StyledUIBase;
+            import view.QuestionListView;
+            import org.apache.royale.collections.ArrayList;
+
+            public var questionListView:QuestionListView;
+            public var idQuestion:int;
+
+            private function faultCallback(event:ServiceIOErrorEvent):void
+            {
+                Alert.show("Service call error: " + event.message);
+            }
+
+            private function init():void
+            {
+                var service:ServiceFactory = new ServiceFactory();
+                service.addEventListener(ServiceFactory.COMPLETE, getQuestionCallback);
+                service.addEventListener(ServiceFactory.IOERROR, faultCallback);
+                service.get("questions/" + idQuestion);
+            }
+
+            private function getQuestionCallback(event:ServiceCompleteEvent):void
+            {
+                if (event.data == null)
+                {
+                    Alert.show("Question not found!");
+                    return;
+                }
+
+                header.text = "Question: " + event.data.id;
+
+                txtDescription.text = event.data.description;
+                txtImageURL.text = event.data.imageURL;
+                txtThumbURL.text = event.data.thumbURL;
+                dfPublishedAt.selectedDate = new Date(event.data.publishedAt);
+                dgChoices.dataProvider = new ArrayList(event.data.choices);
+            }
+
+            private function goToSearchList():void
+            {
+                if (questionListView == null)
+                    this.parent.addElement(new QuestionListView());
+                else
+                    this.parent.addElement(questionListView);
+
+                this.parent.removeElement(this);
+            }
+
+            private function sendShareScreen(email:String):void
+            {
+                var url:String = "share?destination_email=" + email + "&content_url=" + window.location.href;
+                if (window.location.href.indexOf("?") == -1)
+                    url += "?id=" + idQuestion;
+
+                var service:ServiceFactory = new ServiceFactory();
+                service.addEventListener(ServiceFactory.COMPLETE, sendShareScreenCallback);
+                service.addEventListener(ServiceFactory.IOERROR, faultCallback);
+                service.post(url);
+            }
+
+            private function sendShareScreenCallback(event:ServiceCompleteEvent):void
+            {
+                if (event.data)
+                    Alert.show("E-Mail sent.");
+                else
+                    Alert.show("Error when trying to send email (check sending settings)!");
+            }
+        ]]>
+    </fx:Script>
+
+    <html:H3 localId="header"/>
+    <j:Spacer height="10"/>
+    <j:Form width="100%">
+        <j:Label text="Description"/>
+        <j:TextInput localId="txtDescription"
+                     width="100%">
+            <j:beads>
+                <js:DisableBead disabled="true"/>
+            </j:beads>
+        </j:TextInput>
+        <j:Label text="Image URL"/>
+        <j:TextInput localId="txtImageURL"
+                     width="100%">
+            <j:beads>
+                <js:DisableBead disabled="true"/>
+            </j:beads>
+        </j:TextInput>
+        <j:Label text="Thumb URL"/>
+        <j:TextInput localId="txtThumbURL"
+                     width="100%">
+            <j:beads>
+                <js:DisableBead disabled="true"/>
+            </j:beads>
+        </j:TextInput>
+        <j:Label text="Published At"/>
+        <j:DateField localId="dfPublishedAt">
+            <j:beads>
+                <js:DisableBead disabled="true"/>
+            </j:beads>
+        </j:DateField>
+        <j:Label text="Votações"/>
+        <j:DataGrid localId="dgChoices"
+                    width="450">
+            <j:columns>
+                <j:DataGridColumn label="Description"
+                                  dataField="description"/>
+                <j:DataGridColumn label="Votes"
+                                  dataField="votes" 
+                                  columnWidth="60"/>
+            </j:columns>
+        </j:DataGrid>
+    </j:Form>
+    <j:Spacer height="20"/>
+    <j:HGroup gap="5"
+              width="100%">
+        <j:Button text="Go to search list"
+                  emphasis="{StyledUIBase.PRIMARY}"
+                  width="100%"
+                  click="goToSearchList()"/>
+        <j:Button text="Share Screen"
+                  emphasis="{StyledUIBase.PRIMARY}"
+                  width="100%"
+                  click="popupEMailInput.open = true"/>
+    </j:HGroup>
+
+    <j:PopUp localId="popupEMailInput">
+        <ns1:EMailInputView submit="sendShareScreen(event.currentTarget.email); popupEMailInput.open = false;"
+                            width="500"/>
+    </j:PopUp>
+</j:View>
